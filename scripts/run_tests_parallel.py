@@ -101,6 +101,9 @@ def _runner_scratch_root() -> str:
     later makedirs/mkdtemp here fail with EPERM for every other user on the host, with no way
     back that does not need root. Keying by uid means no run is blocked by another's leftovers.
     """
+    if root := os.environ.get("HERMES_TEST_SCRATCH_ROOT"):
+        os.makedirs(root, exist_ok=True)
+        return root
     name = "hermes-pytest" + (f"-{os.getuid()}" if hasattr(os, "getuid") else "")
     if os.name == "nt" or not os.path.isdir("/var/tmp"):  # no-tmp: ok — probing the disk-backed FHS root
         root = os.path.join(tempfile.gettempdir(), name)

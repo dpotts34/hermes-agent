@@ -392,6 +392,10 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path, *, assume_yes: 
     from hermes_cli.update_cmd import _count_commits_between, _has_upstream_remote, _no_prompt_git_kwargs, _should_skip_upstream_prompt
     from hermes_cli.update_cmd_check import tracking_refspec
     from hermes_cli.update_custody import run_git
+    from hermes_cli.tested_update_source import read_policy
+    if read_policy(cwd, git_cmd) is not None:
+        print("\n→ Using the tested fork; official-main integration is handled by its validation workflow.")
+        return False
     if not _has_upstream_remote(git_cmd, cwd) and (
         _should_skip_upstream_prompt() or not _offer_upstream_remote(git_cmd, cwd, assume_yes=assume_yes, input_fn=input_fn)
     ):

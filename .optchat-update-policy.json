@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "repository": "dpotts34/hermes-agent",
+  "branch": "main",
+  "upstream_repository": "NousResearch/hermes-agent",
+  "upstream_branch": "main",
+  "plugin_repository": "dpotts34/Hermes-OptChat-Plugin",
+  "plugin_commit": "b41dee60c4328137cff18c34cb7cab0b352e9e1a"
+}

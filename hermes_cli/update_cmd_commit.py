@@ -686,6 +686,10 @@ def preflight_refusal(git_cmd, root: Path, target_ref: str, critical_files) -> s
     * a target whose startup-critical modules do not compile (rollback used to be the only guard).
     """
     root = Path(root)
+    from hermes_cli.tested_update_source import target_refusal
+    if refusal := target_refusal(root, target_ref, git_cmd):
+        _record_stop("untested_fork_target")
+        return f"✗ {refusal}"
     if not _owns_live_checkout(root):
         try:
             from hermes_cli.venv_sync import refuse_foreign_owned_venv

@@ -180,6 +180,8 @@ _pf86="$(env | sed -n 's/^ProgramFiles(x86)=//p' | head -n1)"
 #   * HERMES_TEST_WORKERS / PATHS / FILE_TIMEOUT / FILE_RETRIES / SLICE are
 #     read by run_tests_parallel.py at argparse-default time — inside the
 #     stripped environment.
+#   * HERMES_TEST_SCRATCH_ROOT places per-file scratch under a caller-owned disk
+#     directory (for isolated compatibility checks). Keep it short for AF_UNIX tests.
 #   * HERMES_TEST_IMAGE is read by tests/docker/conftest.py to skip its
 #     session-scoped `docker build`. CI's docker.yml sets it to the image
 #     the build step just loaded; stripping it made every per-file pytest
@@ -218,7 +220,7 @@ _pf86="$(env | sed -n 's/^ProgramFiles(x86)=//p' | head -n1)"
 # credential can leak" property stays auditable at a glance.
 TEST_ENV=()
 for _test_var in HERMES_TEST_IMAGE HERMES_TEST_WORKERS HERMES_TEST_PATHS \
-  HERMES_TEST_FILE_TIMEOUT HERMES_TEST_FILE_RETRIES HERMES_TEST_SLICE HERMES_TEST_FORKSERVER \
+  HERMES_TEST_FILE_TIMEOUT HERMES_TEST_FILE_RETRIES HERMES_TEST_SLICE HERMES_TEST_FORKSERVER HERMES_TEST_SCRATCH_ROOT \
   SSL_CERT_FILE SSL_CERT_DIR HERMES_GATEWAY_LOCK_DIR HERMES_E2E_REQUIRE_TUI CI GITHUB_ACTIONS \
   HERMES_E2E_WINDOWS_INSTALL HERMES_E2E_MACHINE_ROOT HERMES_E2E_PROFILES_ROOT HERMES_E2E_ARTIFACTS \
   HERMES_E2E_STRICT_ACCEPTANCE HERMES_E2E_UPGRADE_BASE HERMES_E2E_N1_REF \

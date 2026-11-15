@@ -153,7 +153,8 @@ def fetch_compare_branch(git_cmd: list[str], root: Path, branch: str, depth_args
     branches. ``main`` prefers upstream as the canonical reference; other branches go straight
     to origin, because a fork's branch usually has no upstream counterpart.
     """
-    if branch == "main":
+    from hermes_cli.tested_update_source import read_policy
+    if branch == "main" and read_policy(root, git_cmd) is None:
         # A local probe (~6 ms) spares non-fork installs a failed network fetch (~0.3-1 s).
         if _git(git_cmd, root, ["remote", "get-url", "upstream"]).returncode == 0:
             fetch_result = _fetch(git_cmd, root, depth_args, "upstream", branch)

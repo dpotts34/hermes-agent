@@ -66,6 +66,27 @@ for `install.ps1`, or set `HERMES_INSTALL_CHANNEL=main` before an
 Windows Store, MSIX and bundled desktop installs are unaffected; their channel
 is baked into the package (see below).
 
+### Tested OptChat fork
+
+This fork's `main` branch is the update source for the repaired OptChat setup.
+Its maintenance workflow combines official `main` with the core repair, checks
+the pinned plugin, and publishes the exact commit that passed those checks.
+A failed check does not advance the update source.
+
+An installation with `.optchat-update-policy.json` uses its matching `origin`,
+even if an `upstream` remote exists. Before changing the checkout, the updater
+requires the tested commit's verification markers and the same plugin policy.
+An untested target or a changed policy stops the update without moving the
+checkout. Ordinary installations without this policy keep their existing
+update behavior.
+
+Keep the `main` channel for this setup. Use `hermes update`, or the Desktop
+update button for this source installation. Do not replace `origin` with the
+official repository, reset the checkout to official `main`, or rerun the
+official installer: those operations are outside this tested update path.
+The plugin remains a separate pinned installation; changing that pin requires
+a coordinated compatibility check, not an independent plugin update.
+
 ### Bundled desktop updates
 
 On Windows, the sideload app checks the registered App Installer source. Apply

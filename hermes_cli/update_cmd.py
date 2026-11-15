@@ -665,6 +665,10 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False, ch
     if not _check.compare_ref_exists(git_cmd, root, compare_branch):
         print(f"✗ Branch '{branch}' not found on {compare_branch.split('/', 1)[0]}.")
         sys.exit(1)
+    from hermes_cli.tested_update_source import target_refusal
+    if refusal := target_refusal(root, compare_branch, git_cmd):
+        print(f"✗ {refusal}")
+        sys.exit(1)
     if is_shallow:
         _check.report_shallow_verdict(git_cmd, root, compare_branch)
     else:
