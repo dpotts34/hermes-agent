@@ -15,6 +15,7 @@ from typing import Any, Sequence
 
 FORK_REPOSITORY = "dpotts34/hermes-agent"
 FORK_URL = f"https://github.com/{FORK_REPOSITORY}.git"
+FORK_SSH_URL = f"git@github.com:{FORK_REPOSITORY}.git"
 UPSTREAM_REPOSITORY = "NousResearch/hermes-agent"
 UPSTREAM_URL = f"https://github.com/{UPSTREAM_REPOSITORY}.git"
 PLUGIN_REPOSITORY = "dpotts34/Hermes-OptChat-Plugin"
@@ -497,7 +498,7 @@ def stage(args: argparse.Namespace) -> int:
         "commit",
         "--allow-empty",
         "-m",
-        "chore: record tested-fork promotion candidate",
+        "chore: record tested-fork promotion candidate [skip ci]",
         "-m",
         "\n".join(trailers),
     )
@@ -690,18 +691,6 @@ def publish(args: argparse.Namespace) -> int:
     # old_main, and the remote must still equal that exact SHA at receive time.
     # Therefore the accepted update is strictly fast-forward; no rebase or
     # non-fast-forward update is possible.
-    token = os.environ.get("GITHUB_TOKEN", "")
-    push_env = os.environ.copy()
-    if args.fork_url.startswith("https://github.com/"):
-        if not token:
-            raise PipelineError("GITHUB_TOKEN is required for GitHub publication")
-        import base64
-
-        basic = base64.b64encode(f"x-access-token:{token}".encode()).decode("ascii")
-        push_env["GIT_CONFIG_COUNT"] = "1"
-        push_env["GIT_CONFIG_KEY_0"] = "http.https://github.com/.extraheader"
-        push_env["GIT_CONFIG_VALUE_0"] = f"AUTHORIZATION: basic {basic}"
-
     command = [
         "git",
         "-C",
@@ -712,10 +701,10 @@ def publish(args: argparse.Namespace) -> int:
         "fork",
         "refs/heads/candidate:refs/heads/main",
     ]
-    pushed = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=push_env)
+    pushed = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if pushed.returncode:
-        detail = pushed.stderr.strip() or pushed.stdout.strip()
-        raise PipelineError(f"Compare-and-swap publication failed; main was not updated: {detail}")
+        detail = "\n".join(part.strip() for part in (pushed.stdout,pushed.stderr) if part.strip())
+        raise PipelineError(f"Compare-and-swap publication did not confirm success: {detail}")
     published_main = git(None, "ls-remote", "--exit-code", args.fork_url, "refs/heads/main").split()[0]
     if published_main != candidate_sha:
         raise PipelineError(
@@ -752,7 +741,7 @@ def parser() -> argparse.ArgumentParser:
     publish_parser.add_argument("--artifacts", type=Path, required=True)
     publish_parser.add_argument("--work-dir", type=Path, required=True)
     publish_parser.add_argument("--checker", type=Path, default=Path(__file__).with_name("check_optchat_candidate.py"))
-    publish_parser.add_argument("--fork-url", default=FORK_URL)
+    publish_parser.add_argument("--fork-url", default=FORK_SSH_URL)
     publish_parser.add_argument("--plugin-sha", default=PINNED_PLUGIN_COMMIT)
     publish_parser.set_defaults(function=publish)
     return root
