@@ -42,6 +42,32 @@ The evidence manifest is `manifest.json`, with `status.json` for the job gate. A
 
 The checkout, upload, and download actions are pinned to immutable commits verified against their release tags. `OPTCHAT_PUBLISH_KEY` is the private half of the **OptChat tested-fork publisher** deploy key for this repository, not a user-wide GitHub token. GitHub SSH host keys are pinned in `scripts/github_known_hosts`. The private key is written with mode `0600` in the publish runner's temporary directory and removed after the job. To revoke publishing access, delete the deploy key in repository Settings → Deploy keys and the corresponding Actions secret. A replacement key requires both the new public deploy key and updated Actions secret. The test job needs neither.
 
+## Normal installed updates
+
+Keep the installation on this fork's `origin/main` and the `main` update channel.
+Use the normal commands:
+
+```sh
+hermes update --check
+hermes update
+```
+
+The workflow checks official `main` daily at **13:17 UTC**. To check sooner, open
+the **Tested-fork promotion** workflow in this repository's Actions page and use
+**Run workflow** on `optchat-maintenance`. Wait for both jobs to pass, then run
+the normal update command. The workflow does not update a running VM itself.
+
+No local repair patch needs to be applied after an update. The core repair is
+committed in the tested history, and the repaired plugin remains pinned
+separately. Do not change the source to official `main`, run the official
+installer over this checkout, or update the plugin independently.
+
+If a merge or compatibility check fails, the feed stays on its last tested
+commit. Continue using that version and inspect the failed Actions run; do not
+force an official update to bypass the check. A failed local installation is a
+different case: follow the native updater's recovery message and retain its
+journal/stash. Do not reapply obsolete local repair stashes over this fork.
+
 ## Local commands and tests
 
 The CLI supports local bare remotes for integration testing. For example, see the subprocess-based tests in `tests/test_tested_fork.py`; they create local bare fork/upstream/plugin repositories and a synthetic checker. The test cases cover a checker failure, a merge conflict, a post-check publication race, preserved successful history, and no-op verification.
