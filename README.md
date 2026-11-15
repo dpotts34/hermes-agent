@@ -57,6 +57,10 @@ the **Tested-fork promotion** workflow in this repository's Actions page and use
 **Run workflow** on `optchat-maintenance`. Wait for both jobs to pass, then run
 the normal update command. The workflow does not update a running VM itself.
 
+After a CLI update, reconnect any Desktop-over-SSH connection that Hermes reports
+as still running pre-update code. This loads the updated backend; it does not
+require a repair patch.
+
 No local repair patch needs to be applied after an update. The core repair is
 committed in the tested history, and the repaired plugin remains pinned
 separately. Do not change the source to official `main`, run the official
