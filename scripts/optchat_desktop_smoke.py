@@ -29,7 +29,7 @@ def main() -> None:
     sys.path[:0] = [str(core),str(plugin)]
     from tests.e2e.core.history._helpers import OFFLINE_CONFIG, Spawned, TuiGateway
     from tests.fakes.fake_llm_provider import FakeLLMServer, Text, ToolCall, write_hermes_home
-    from hermes_state import SessionDB
+    from optchat.hermes_compat import decode_content
     import agent.context_engine
     import optchat.store
     for module, source in ((agent.context_engine,core),(optchat.store,plugin)):
@@ -121,7 +121,7 @@ def main() -> None:
         main_requests.append(body)
         last = messages[-1]
         if last.get("role") == "tool":
-            payload = SessionDB._decode_content(last.get("content"))
+            payload = decode_content(last.get("content"))
             if isinstance(payload,str):
                 payload = json.loads(payload)
             if "matches" in payload:
@@ -208,8 +208,8 @@ optchat:
                 rows = [dict(row) for row in database.execute(
                     "SELECT role,content,tool_name FROM messages WHERE session_id=? AND active=1 ORDER BY id",(stored,))]
                 tools = {row["tool_name"] for row in rows if row["role"] == "tool"}
-                users = [SessionDB._decode_content(row["content"]) for row in rows if row["role"] == "user"]
-                answers = [SessionDB._decode_content(row["content"]) for row in rows if row["role"] == "assistant"]
+                users = [decode_content(row["content"]) for row in rows if row["role"] == "user"]
+                answers = [decode_content(row["content"]) for row in rows if row["role"] == "assistant"]
                 assert users[:3] == seeds,"Core history did not preserve the original records"
                 assert {"optchat_search","optchat_zoom"}.issubset(tools),tools
                 assert answers[-1] == "ARCHIVE_RETRIEVAL_OK",answers

@@ -6,8 +6,8 @@ This source is intended for the `optchat-maintenance` control branch. The runtim
 
 - Runtime fork: `dpotts34/hermes-agent`, branch `main`.
 - Official source: `NousResearch/hermes-agent`, branch `main`; the selected upstream SHA is the exact commit fetched from `refs/heads/main` for that run. There is no release tag (`upstream_tag` is JSON `null`).
-- Plugin source: `dpotts34/Hermes-OptChat-Plugin`, pinned to `b41dee60c4328137cff18c34cb7cab0b352e9e1a`.
-- Initial seed: `dpotts34/hermes-agent` branch `optchat/seed`.
+- Plugin source: `dpotts34/Hermes-OptChat-Plugin`, pinned to `b8d9e48f1221e024a46fe21bf74696440905e422` (branch `optchat/core-codec-compat`).
+- Integration branch: `dpotts34/hermes-agent` branch `optchat/seed`.
 - Runtime policy: `.optchat-update-policy.json` with exactly these keys and values:
 
   ```json
@@ -18,11 +18,11 @@ This source is intended for the `optchat-maintenance` control branch. The runtim
     "upstream_repository": "NousResearch/hermes-agent",
     "upstream_branch": "main",
     "plugin_repository": "dpotts34/Hermes-OptChat-Plugin",
-    "plugin_commit": "b41dee60c4328137cff18c34cb7cab0b352e9e1a"
+    "plugin_commit": "b8d9e48f1221e024a46fe21bf74696440905e422"
   }
   ```
 
-The automation fetches only the named fork branches, official `main`, and the pinned plugin commit (no tags or unrelated branch refs). If runtime `main` has neither a tested-fork marker in its ancestry nor the policy file at its tip, it fetches `optchat/seed` and requires the currently published `main` to be an ancestor of that seed. A policy-containing but unmarked `main` is staged from its own tip; it is never silently replaced by the seed. Invalid/missing policy on a selected base fails closed.
+The automation fetches only the named fork branches, official `main`, and the pinned plugin commit (no tags or unrelated branch refs). `optchat/seed` is the reviewed integration branch. When it is an ancestor of published `main` (the normal state), staging starts from `main`. When it holds new commits on top of `main` (a conflict resolution, a plugin pin change, or the first bootstrap), staging starts from it instead, so those commits are merged with official `main`, checked, and published like any other candidate. A seed that has diverged from `main` fails closed. Invalid/missing policy on a selected base fails closed.
 
 An unmarked candidate receives its promotion metadata commit **before** the checker runs. The exact SHA of that commit is tested and bundled. No commit is added or amended after a successful check. The commit trailers record the updater-required marker, source/plugin/policy identities, checker digest, control revision, and prior `main` SHA. A no-op is allowed only when current `main` already contains the selected official commit and its tip trailers match the currently pinned plugin, raw policy SHA-256, checker version/digest, and control revision. The pinned plugin is still fetched and the policy is revalidated before that no-op is reported.
 
@@ -71,6 +71,13 @@ commit. Continue using that version and inspect the failed Actions run; do not
 force an official update to bypass the check. A failed local installation is a
 different case: follow the native updater's recovery message and retain its
 journal/stash. Do not reapply obsolete local repair stashes over this fork.
+
+### Resolving a failed merge or plugin incompatibility
+
+1. Merge published `main` and official `main` locally, resolve the conflict, and run the checker (`scripts/check_optchat_candidate.py`) against the result and the pinned plugin.
+2. If the plugin must change, publish the compatible plugin commit to the plugin repository, update `plugin_commit` in `.optchat-update-policy.json` on the integration commit, and update `PINNED_PLUGIN_COMMIT` in `scripts/tested_fork.py` on this control branch. The plugin commit must work with both the installed core and the new core.
+3. Push the integration commit to `optchat/seed` (it must descend from published `main`) and this control branch, then run the workflow manually.
+4. On the installation, install the new plugin commit, then run `OPTCHAT_ACCEPT_PLUGIN_COMMIT=<plugin commit> hermes update`. The updater refuses a pin change without that confirmation.
 
 ## Local commands and tests
 

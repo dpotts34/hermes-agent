@@ -27,6 +27,7 @@ CORE_TESTS = [
     "tests/tui_gateway/test_live_config_context_pin_mirror.py",
     "tests/tui_gateway/test_fallback_chain_hot_reload.py",
     "tests/agent/test_anthropic_preserved_thinking_replay.py",
+    "tests/agent/test_request_only_empty_recovery.py",
     "tests/hermes_cli/test_tested_fork_updates.py",
     "tests/hermes_cli/test_update_fork_sync_identity.py",
     "tests/hermes_cli/test_update_narrow_clone_refspec.py",

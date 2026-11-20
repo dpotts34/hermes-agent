@@ -20,7 +20,7 @@ UPSTREAM_REPOSITORY = "NousResearch/hermes-agent"
 UPSTREAM_URL = f"https://github.com/{UPSTREAM_REPOSITORY}.git"
 PLUGIN_REPOSITORY = "dpotts34/Hermes-OptChat-Plugin"
 PLUGIN_URL = f"https://github.com/{PLUGIN_REPOSITORY}.git"
-PINNED_PLUGIN_COMMIT = "b41dee60c4328137cff18c34cb7cab0b352e9e1a"
+PINNED_PLUGIN_COMMIT = "b8d9e48f1221e024a46fe21bf74696440905e422"
 RUNTIME_BRANCH = "main"
 SEED_BRANCH = "optchat/seed"
 POLICY_PATH = ".optchat-update-policy.json"
@@ -68,14 +68,6 @@ def resolve_commit(repository: Path, ref: str) -> str:
     return commit
 
 
-def has_policy(repository: Path, commit: str) -> bool:
-    return subprocess.run(
-        ["git", "-C", str(repository), "cat-file", "-e", f"{commit}:{POLICY_PATH}"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    ).returncode == 0
-
-
 def commit_trailers(repository: Path, commit: str) -> dict[str, str]:
     message = git(repository, "show", "-s", "--format=%B", commit)
     parsed: dict[str, str] = {}
@@ -84,18 +76,6 @@ def commit_trailers(repository: Path, commit: str) -> dict[str, str]:
         if separator and key.startswith("OptChat-"):
             parsed[key] = value.strip()
     return parsed
-
-
-def has_tested_marker(repository: Path, commit: str) -> bool:
-    return bool(
-        git(
-            repository,
-            "log",
-            "--format=%H",
-            "--grep=^OptChat-Tested-Fork: true$",
-            commit,
-        )
-    )
 
 
 def policy_bytes(repository: Path, commit: str) -> bytes:
@@ -392,18 +372,17 @@ def stage(args: argparse.Namespace) -> int:
     upstream_sha = fetch_ref(core, "official", args.upstream_branch, "refs/remotes/official/main")
     plugin_sha = fetch_plugin(plugin, args.plugin_url, args.plugin_sha)
 
-    main_has_marker = has_tested_marker(core, old_main_sha)
-    main_has_policy = has_policy(core, old_main_sha)
-    bootstrap = not main_has_marker and not main_has_policy
-    if bootstrap:
-        seed_sha = fetch_ref(core, "origin", SEED_BRANCH, "refs/remotes/origin/optchat/seed")
-        if not is_ancestor(core, old_main_sha, seed_sha):
-            raise PipelineError(
-                f"Bootstrap seed {seed_sha} does not descend from published main {old_main_sha}; refusing to replace history"
-            )
-        source_sha = seed_sha
-    else:
-        source_sha = old_main_sha
+    # optchat/seed is the reviewed integration branch: a conflict resolution, a plugin pin change,
+    # or the first bootstrap lands there as a descendant of published main. Once promoted it is an
+    # ancestor of main again and staging continues from main.
+    seed_sha = fetch_ref(core, "origin", SEED_BRANCH, "refs/remotes/origin/optchat/seed")
+    integrating = not is_ancestor(core, seed_sha, old_main_sha)
+    if integrating and not is_ancestor(core, old_main_sha, seed_sha):
+        raise PipelineError(
+            f"Integration branch {SEED_BRANCH} ({seed_sha}) has diverged from published main {old_main_sha}; "
+            "merge main into it before it can be checked"
+        )
+    source_sha = seed_sha if integrating else old_main_sha
 
     raw_policy = policy_bytes(core, source_sha)
     policy_sha256 = validate_policy(
@@ -416,7 +395,7 @@ def stage(args: argparse.Namespace) -> int:
     )
 
     if (
-        not bootstrap
+        not integrating
         and is_ancestor(core, upstream_sha, old_main_sha)
         and recorded_candidate_is_current(
             core,

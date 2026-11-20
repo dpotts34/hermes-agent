@@ -265,6 +265,43 @@ class TestedForkPipelineTests(unittest.TestCase):
         self.assertFalse((no_update_artifacts / "candidate.bundle").exists())
         self.assertEqual(self.checker_log.read_text(encoding="utf-8"), "checked\n")
 
+    def _push_integration_commit(self, base: str, name: str) -> str:
+        repository = self.root / f"integration-{name}"
+        self._git("clone", "--quiet", str(self.fork_bare), str(repository))
+        self._git("config", "user.name", "Integration Test", cwd=repository)
+        self._git("config", "user.email", "integration-test@example.invalid", cwd=repository)
+        self._git("checkout", "--quiet", "--detach", base, cwd=repository)
+        (repository / f"{name}.txt").write_text("reviewed resolution\n", encoding="utf-8")
+        sha = self._commit(repository, f"core: {name}")
+        self._git("push", "--force", "origin", "HEAD:refs/heads/optchat/seed", cwd=repository)
+        return sha
+
+    def test_reviewed_integration_commit_on_top_of_main_is_checked_and_published(self) -> None:
+        first, _, artifacts = self._stage("first-promotion")
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.assertEqual(self._publish("first-promotion", artifacts).returncode, 0)
+        resolution = self._push_integration_commit(self._remote_main(), "resolution")
+
+        second, _, artifacts = self._stage("integration")
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        candidate = json.loads((artifacts / "manifest.json").read_text(encoding="utf-8"))["candidate_sha"]
+        self.assertEqual(self._publish("integration", artifacts).returncode, 0)
+        self.assertEqual(self._remote_main(), candidate)
+        self._git("merge-base", "--is-ancestor", resolution, candidate, cwd=self.fork_bare)
+
+    def test_diverged_integration_branch_never_changes_published_main(self) -> None:
+        first, _, artifacts = self._stage("before-divergence")
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.assertEqual(self._publish("before-divergence", artifacts).returncode, 0)
+        published = self._remote_main()
+        self._push_integration_commit(self.old_main_sha, "diverged")
+
+        result, _, artifacts = self._stage("diverged")
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("diverged", result.stderr)
+        self.assertEqual(self._remote_main(), published)
+        self.assertFalse((artifacts / "manifest.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
