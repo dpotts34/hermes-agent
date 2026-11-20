@@ -4,11 +4,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 
 POLICY_FILE = ".optchat-update-policy.json"
+ACCEPT_PLUGIN_ENV = "OPTCHAT_ACCEPT_PLUGIN_COMMIT"
 _SHA = re.compile(r"[0-9a-f]{40}")
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
 
@@ -71,8 +73,9 @@ def target_refusal(root: Path, target_ref: str, git_cmd=None) -> str | None:
         if not _SHA.fullmatch(target):
             raise ValueError("The tested update target is not a commit")
         blob = _run_git(root, ["show", f"{target}:{POLICY_FILE}"], git_cmd).stdout
-        if _decode(blob) != current:
-            raise ValueError("The update changes the tested plugin/source policy; coordinated review is required")
+        candidate = _decode(blob)
+        if candidate != current:
+            _require_accepted_plugin_change(current, candidate)
         message = _git(root, ["log", "-1", "--format=%B", target], git_cmd)
         trailers = {}
         for line in message.splitlines():
@@ -84,7 +87,7 @@ def target_refusal(root: Path, target_ref: str, git_cmd=None) -> str | None:
         expected = {
             "OptChat-Tested-Fork": "true",
             "OptChat-Upstream-Channel": "main",
-            "OptChat-Plugin-SHA": current["plugin_commit"],
+            "OptChat-Plugin-SHA": candidate["plugin_commit"],
             "OptChat-Policy-SHA256": hashlib.sha256(blob).hexdigest(),
         }
         if any(trailers.get(key) != value for key, value in expected.items()):
@@ -94,6 +97,22 @@ def target_refusal(root: Path, target_ref: str, git_cmd=None) -> str | None:
         return None
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         return f"Tested-fork update refused: {exc}. The current installation is unchanged."
+
+
+def _require_accepted_plugin_change(current: dict, candidate: dict) -> None:
+    """A tested target may move only the plugin pin, and only when the user names the new pin.
+
+    The core cannot see which plugin snapshot a profile runs, so the person who installed the
+    matching plugin confirms it; any other policy change still needs a coordinated migration.
+    """
+    if {**candidate, "plugin_commit": current["plugin_commit"]} != current:
+        raise ValueError("The update changes the tested source policy; coordinated review is required")
+    pin = candidate["plugin_commit"]
+    if os.environ.get(ACCEPT_PLUGIN_ENV, "").strip() != pin:
+        raise ValueError(
+            f"The update moves the OptChat plugin pin from {current['plugin_commit'][:12]} to {pin[:12]}. "
+            f"Install plugin commit {pin} for every profile that uses OptChat, then run: "
+            f"{ACCEPT_PLUGIN_ENV}={pin} hermes update")
 
 
 def main() -> None:

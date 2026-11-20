@@ -86,6 +86,37 @@ def test_changing_origin_cannot_disable_the_installed_policy(fork):
     assert refusal is not None and "origin does not match" in refusal
 
 
+def _publish_policy(fork, **changes):
+    previous = git(fork, "rev-parse", "HEAD")
+    (fork / POLICY_FILE).write_text(json.dumps({**POLICY, **changes}) + "\n")
+    target = mark(fork, plugin=changes.get("plugin_commit"))
+    git(fork, "checkout", "-q", "--detach", previous)
+    return previous, target
+
+
+@pytest.mark.parametrize("accepted", [None, "d" * 40])
+def test_plugin_pin_change_requires_the_user_to_name_the_new_pin(fork, monkeypatch, accepted):
+    previous, target = _publish_policy(fork, plugin_commit="c" * 40)
+    if accepted:
+        monkeypatch.setenv("OPTCHAT_ACCEPT_PLUGIN_COMMIT", accepted)
+    refusal = preflight_refusal(["git"], fork, target, ())
+    assert refusal is not None and "OPTCHAT_ACCEPT_PLUGIN_COMMIT=" + "c" * 40 in refusal
+    assert git(fork, "rev-parse", "HEAD") == previous
+
+
+def test_accepted_plugin_pin_change_is_allowed(fork, monkeypatch):
+    _, target = _publish_policy(fork, plugin_commit="c" * 40)
+    monkeypatch.setenv("OPTCHAT_ACCEPT_PLUGIN_COMMIT", "c" * 40)
+    assert preflight_refusal(["git"], fork, target, ()) is None
+
+
+def test_accepting_a_plugin_pin_cannot_change_any_other_policy_field(fork, monkeypatch):
+    _, target = _publish_policy(fork, plugin_commit="c" * 40, upstream_repository="example/other")
+    monkeypatch.setenv("OPTCHAT_ACCEPT_PLUGIN_COMMIT", "c" * 40)
+    refusal = preflight_refusal(["git"], fork, target, ())
+    assert refusal is not None and "coordinated review" in refusal
+
+
 def test_check_uses_the_tested_fork_even_with_an_official_upstream_remote(fork, tmp_path, monkeypatch, capsys):
     from hermes_cli import update_cmd
 

@@ -21,8 +21,6 @@ from agent.usage_anchor import anchored_context_tokens
 from agent.prompt_caching import build_prompt_cache_plan, effective_cache_ttl
 from agent.turn_context import build_api_messages
 from agent.turn_empty_response import add_empty_response_retry_hint
-from agent.turn_iteration_prep import begin_iteration, prepare_iteration
-from agent.turn_proactive_prune import route_change_offload
 
 logger = logging.getLogger("agent.conversation_loop")
 
@@ -383,21 +381,17 @@ def assemble_api_request(
     )
 
 
-def prepare_next_request(agent: Any, state: Any) -> bool:
-    """Advance the iteration through request assembly; False ends the turn via finalization.
+def assemble_or_finish(agent: Any, state: Any) -> bool:
+    """Assemble this iteration's request; False ends the turn via finalization.
 
     Keep preparation failures and requested cancellation out of provider dispatch without
     changing ordinary plugin-error fallback or swallowing an unrequested KeyboardInterrupt.
     """
-    from agent.conversation_loop import _run_phase
+    from agent import conversation_loop as loop
 
-    if _run_phase(begin_iteration, agent, state).action == "break":
-        return False
-    _run_phase(prepare_iteration, agent, state)
-    # A fallback route's cold offload runs before assembly, as in the unrepaired loop.
-    _run_phase(route_change_offload, agent, state)
     try:
-        _run_phase(assemble_api_request, agent, state)
+        # Resolved through the loop module so callers that wrap its assembly seam still apply.
+        loop._run_phase(loop.assemble_api_request, agent, state)
     except KeyboardInterrupt:
         if not getattr(agent, "_interrupt_requested", False):
             raise
