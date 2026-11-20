@@ -5,5 +5,5 @@
   "upstream_repository": "NousResearch/hermes-agent",
   "upstream_branch": "main",
   "plugin_repository": "dpotts34/Hermes-OptChat-Plugin",
-  "plugin_commit": "b41dee60c4328137cff18c34cb7cab0b352e9e1a"
+  "plugin_commit": "b8d9e48f1221e024a46fe21bf74696440905e422"
 }

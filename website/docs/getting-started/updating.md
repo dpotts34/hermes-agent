@@ -85,7 +85,12 @@ update button for this source installation. Do not replace `origin` with the
 official repository, reset the checkout to official `main`, or rerun the
 official installer: those operations are outside this tested update path.
 The plugin remains a separate pinned installation; changing that pin requires
-a coordinated compatibility check, not an independent plugin update.
+a coordinated compatibility check, not an independent plugin update. When a
+tested update moves the pin, `hermes update` stops and names the new plugin
+commit. Install that commit for every profile that uses OptChat (the pinned
+plugin works with both the current and the next core), then rerun the update
+with `OPTCHAT_ACCEPT_PLUGIN_COMMIT=<that commit> hermes update`. Any other
+policy change is still refused.
 
 ### Bundled desktop updates
 
