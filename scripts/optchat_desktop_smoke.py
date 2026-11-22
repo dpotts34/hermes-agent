@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -15,6 +16,9 @@ import subprocess
 import sys
 import threading
 import time
+
+# A 1x1 PNG, uploaded the way Desktop-over-SSH sends attachments.
+PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2ioAAAAASUVORK5CYII="
 
 
 def main() -> None:
@@ -131,6 +135,9 @@ def main() -> None:
             return Text("ARCHIVE_RETRIEVAL_OK")
         if str(last.get("content","")).startswith("Store this synthetic record"):
             return Text("SYNTHETIC_RECORD_SAVED")
+        if isinstance(last.get("content"),list) and any(p.get("type") == "image_url" for p in last["content"]):
+            assert any("[Image attached at:" in str(p.get("text","")) for p in last["content"]),last["content"]
+            return Text("IMAGE_TURN_OK")
         assert any("<chat>" in str(message.get("content","")) for message in messages),messages
         return ToolCall("optchat_search",{"query":"ORCHID-17"})
 
@@ -173,9 +180,15 @@ optchat:
     result = {"passed":False,"surface":"actual isolated Desktop HTTP/WebSocket backend",
               "provider":"deterministic loopback HTTP provider; no real credentials"}
     began = time.monotonic()
+    provider = None
     try:
         with FakeLLMServer(script=answer,aux=summary) as provider:
             write_hermes_home(home,provider.base_url,extra_config=extra)
+            config = (home/"config.yaml").read_text()
+            assert config.startswith("model:\n"), "Fake home layout changed; declare vision support another way"
+            # A vision-capable main model takes Desktop images as native parts: the turn shape whose
+            # model copy differs from Hermes's admitted copy.
+            (home/"config.yaml").write_text("model:\n  supports_vision: true\n"+config[len("model:\n"):])
             (home/"plugins").mkdir()
             (home/"plugins"/"optchat").symlink_to(plugin/"optchat",target_is_directory=True)
             stored = None
@@ -194,8 +207,14 @@ optchat:
                     else:
                         resumed = transport.call("session.resume",{"session_id":stored,"eager_build":True},timeout=120)
                         runtime = resumed["session_id"]
-                        prompts = ["Use OptChat search and zoom to retrieve the exact earlier synthetic project verification code."]
+                        prompts = [("image","Describe the attached synthetic image."),
+                                   "Use OptChat search and zoom to retrieve the exact earlier synthetic project verification code."]
                     for prompt in prompts:
+                        if isinstance(prompt,tuple):
+                            attached = transport.call("image.attach_bytes",{"session_id":runtime,"content_base64":PNG_BASE64,
+                                                                            "filename":"synthetic.png"},timeout=60)
+                            assert attached.get("attached"),attached
+                            prompt = prompt[1]
                         completion = transport.submit(runtime,prompt,timeout=120)
                         assert completion.get("status") == "complete",completion
                         records.append({"stage":stage,"completion":completion})
@@ -213,17 +232,20 @@ optchat:
                 assert users[:3] == seeds,"Core history did not preserve the original records"
                 assert {"optchat_search","optchat_zoom"}.issubset(tools),tools
                 assert answers[-1] == "ARCHIVE_RETRIEVAL_OK",answers
+                assert "IMAGE_TURN_OK" in answers,"The native image turn did not reach the provider"
+                assert any("@image:" in str(text) for text in users),"Hermes did not persist the image reference"
                 assert database.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
             archive = home/"optchat"/hashlib.sha256(stored.encode()).hexdigest()/"chat.db"
             with sqlite3.connect(archive) as database:
                 assert database.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
-            (root/"provider-requests.json").write_text(json.dumps(provider.requests,indent=2)+"\n")
             result.update(passed=True,summary_requests=len(summary_requests),main_requests=len(main_requests),records=records)
     except Exception as exc:
         result["error"] = f"{type(exc).__name__}: {exc}"
         raise
     finally:
         result["seconds"] = round(time.monotonic()-began,3)
+        if provider is not None:  # evidence for a failed run as well as a passing one
+            (root/"provider-requests.json").write_text(json.dumps(provider.requests,indent=2)+"\n")
         (root/"result.json").write_text(json.dumps(result,indent=2)+"\n")
         print(json.dumps(result,indent=2),flush=True)
 

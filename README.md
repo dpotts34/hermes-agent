@@ -6,7 +6,7 @@ This source is intended for the `optchat-maintenance` control branch. The runtim
 
 - Runtime fork: `dpotts34/hermes-agent`, branch `main`.
 - Official source: `NousResearch/hermes-agent`, branch `main`; the selected upstream SHA is the exact commit fetched from `refs/heads/main` for that run. There is no release tag (`upstream_tag` is JSON `null`).
-- Plugin source: `dpotts34/Hermes-OptChat-Plugin`, pinned to `b8d9e48f1221e024a46fe21bf74696440905e422` (branch `optchat/core-codec-compat`).
+- Plugin source: `dpotts34/Hermes-OptChat-Plugin`, pinned to `10768b0a33ca4790b9a5f9232577e91ba1ce5b70` (branch `main`).
 - Integration branch: `dpotts34/hermes-agent` branch `optchat/seed`.
 - Runtime policy: `.optchat-update-policy.json` with exactly these keys and values:
 
@@ -18,7 +18,7 @@ This source is intended for the `optchat-maintenance` control branch. The runtim
     "upstream_repository": "NousResearch/hermes-agent",
     "upstream_branch": "main",
     "plugin_repository": "dpotts34/Hermes-OptChat-Plugin",
-    "plugin_commit": "b8d9e48f1221e024a46fe21bf74696440905e422"
+    "plugin_commit": "10768b0a33ca4790b9a5f9232577e91ba1ce5b70"
   }
   ```
 
