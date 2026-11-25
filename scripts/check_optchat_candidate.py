@@ -107,6 +107,9 @@ def pytest_sessionfinish(session, exitstatus):
                                "-q", "-p", "no:cacheprovider"]),
             ("desktop", [sys.executable, "-B", str(Path(__file__).with_name("optchat_desktop_smoke.py")),
                          "--core", str(core), "--plugin", str(plugin), "--artifacts", str(artifacts / "desktop")]),
+            # The gateway (Hermex) and a Desktop backend continuing one chat in turn.
+            ("two-app", [sys.executable, "-B", str(Path(__file__).with_name("optchat_two_app_smoke.py")),
+                         "--core", str(core), "--plugin", str(plugin), "--artifacts", str(artifacts / "two-app")]),
         ]
         for name, command in commands:
             run_env = dict(env, PYTHONPATH=os.pathsep.join([str(core),str(plugin)]))
